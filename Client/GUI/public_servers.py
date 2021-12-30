@@ -9,7 +9,7 @@ class PublicServersFrame(Frame):
         self.__display_public_rooms()
         for _ in range(50):
             self.insert_new_row([None, None, None, None, None])
-        self.table.pack(fill='both')
+        self.table.pack(expand=1, fill='both')
 
     def __setup_table(self):
         self.table.tag_configure('row', background='gray')
