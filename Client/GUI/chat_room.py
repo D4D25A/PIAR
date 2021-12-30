@@ -1,46 +1,83 @@
-from tkinter import Entry, Frame, LabelFrame, Text, Label
-from tkinter.constants import DISABLED, NORMAL, END
-import datetime
+from tkinter import Entry, Frame, LabelFrame, Label
+from tkinter.scrolledtext import ScrolledText
+from time_funcs import Time
 
-class ChatRoom(Frame):
+# class UsernamePanel(ScrollWidgetsRoot):
+#     def __init__(self, *args):
+#         super().__init__(*args)
+#         self.connected_clients = {}
+    
+#     def display_new_username(self, username):
+#         time = Time.get_time_HMS()
+#         widget = Label(self.username_panel, text=f"[{username}] ")
+#         widget.pack()
+
+#     def remove_displayed_username(self, username):
+#         pass
+
+# class ChatWindow(ScrollWidgetsRoot):
+#     def __init__(self, root):
+#         super().__init__(root)
+#         self.config(state='disabled')
+
+# just for abstraction
+class ScrollPanel(ScrolledText):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config(state='disabled')
+
+    # tag is None just for dev phase
+    def render_new_txt(self, text, tag=None):
+        self.textbox['state'] = 'normal'
+        self.textbox.insert('end', f"{text}\n", tag)
+        self.textbox.see('end')
+        self.textbox['state'] = 'disabled'
+    
+    def render_new_txt_as_label(self, text:str, root=None, **options):
+        if not text.endswith("\n"):
+            text += "\n"
+        if root:
+            label = Label(self, text=text, **options)
+        else:
+            label = Label(self, text=text, **options)
+
+        label.pack()
+
+class EntryPanel(Entry):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__initialize_static_options()
+
+    def __initialize_static_options(self):
+        self.bind('<Return>', self.__on_enter_pressed)
+        self.pack(side='bottom', fill='x', anchor='s') 
+    
+    # gets the input and clears it 
+    def __on_enter_pressed(self, msg):
+        msg = self.get()
+        self.delete(0, 'end')
+
+class RootFrame(Frame):
     def __init__(self):
         super().__init__()
-        self.__create_entry_widget()
-        self.__create_usernames_panel()
-        self.__create_text_box()
+        
+        # the username_panel will most likely become a tree view
+        # as it just lists all the connected users. Much more
+        # efficient to use a tree view
+        self.username_panel = ScrollPanel(self, width=15)
+        self.textbox = ScrollPanel(self)
+        self.entry_widget = EntryPanel(self)
 
-    def __new_username_pane_entry(self, username):
-        now = datetime.datetime.now()
-        time = now.strftime("%H:%M:%S")
-        widget = Label(self.username_panel, text=f"[{time}] [{username}] ")
-        widget.pack()
-
-    # time and username
-    def __create_usernames_panel(self):
-        self.username_panel = LabelFrame(self, width=120, bg='yellow')
-        self.username_panel.pack(side='left', fill='y', anchor='w')
-
-    def __create_text_box(self):
-        self.textbox = Text(self)
-        self.textbox['state'] = DISABLED
+        self.entry_widget.pack(side='bottom', fill='x', anchor='s')
+        self.username_panel.pack(side='right', fill='y', anchor='w')
         self.textbox.pack(expand=1, fill="both")
 
-    def __create_entry_widget(self):
-        self.entry_widget = Entry(self)
-        self.entry_widget.bind('<Return>', self.__on_enter_pressed)
-        self.entry_widget.pack(side='bottom', fill='x', anchor='s') 
-
     def __display_msg_handler(self, username, msg):
-        self.__new_username_pane_entry(username)
-        self.textbox['state'] = NORMAL
-        self.textbox.insert(END, f"{msg}\n")
-        self.textbox.see(END)
-        self.textbox['state'] = DISABLED
+        if len(msg) == 0:
+            pass
 
-    def __on_enter_pressed(self, msg):
-        msg = self.entry_widget.get()
-        self.entry_widget.delete(0, 'end')
-        self.__display_msg_handler('billyb0b', msg)
+        self.textbox.render_new_txt()
+
 
     def __send_msg_to_server(self, msg):
         pass

@@ -7,8 +7,6 @@ class PublicServersFrame(Frame):
         self.table = ttk.Treeview(self)
         self.__setup_table()
         self.__display_public_rooms()
-        for _ in range(50):
-            self.insert_new_row([None, None, None, None, None])
         self.table.pack(expand=1, fill='both')
 
     def __setup_table(self):

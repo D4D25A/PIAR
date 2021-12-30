@@ -10,7 +10,7 @@ class RootWindow(Tk):
         self.tab_controller.pack(expand=1, fill="both")
 
     def __setup_tk_config(self):
-        self.title("PIAR - Privacy Is A Right")
+        self.title("PIAR - Privacy Is A Right [DEV PHASE]")
         self.resizable(width=False, height=False)
         self.geometry(f"{self.w}x{self.h}")
 
