@@ -8,8 +8,19 @@ and vice versa.
 from client_handler import Client
 from room_handler import *
 
+import socket
+
 class Server:
     def __init__(self, listen_ip, listen_port):
         self.listen_ip = listen_ip
         self.listen_port = listen_port
-        
+        self.room_handler = RoomHandler()
+        self.server_socket = socket.socket(socket.AF_INET,  socket.SOCK_STREAM) 
+        self.connected_clients = []
+
+    def __connection_listener(self):
+        while True:
+            client_obj, addr = self.server_socket.accept()
+            del addr
+
+            self.connected_clients.append(client_obj)

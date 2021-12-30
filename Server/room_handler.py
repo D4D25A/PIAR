@@ -21,4 +21,4 @@ class RoomHandler:
         pass
 
 if __name__ == '__main__':
-    Room()
+    print(Room().__room_id__())
