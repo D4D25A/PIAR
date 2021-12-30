@@ -1,4 +1,5 @@
 from GUI import welcome_window, root_window, public_servers, chat_room
+from networking_handler import RoomConnection
 
 if __name__ == '__main__':
     root_window = root_window.RootWindow(1200, 800)

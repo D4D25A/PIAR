@@ -2,23 +2,6 @@ from tkinter import Entry, Frame, LabelFrame, Label
 from tkinter.scrolledtext import ScrolledText
 from time_funcs import Time
 
-# class UsernamePanel(ScrollWidgetsRoot):
-#     def __init__(self, *args):
-#         super().__init__(*args)
-#         self.connected_clients = {}
-    
-#     def display_new_username(self, username):
-#         time = Time.get_time_HMS()
-#         widget = Label(self.username_panel, text=f"[{username}] ")
-#         widget.pack()
-
-#     def remove_displayed_username(self, username):
-#         pass
-
-# class ChatWindow(ScrollWidgetsRoot):
-#     def __init__(self, root):
-#         super().__init__(root)
-#         self.config(state='disabled')
 
 # just for abstraction
 class ScrollPanel(ScrolledText):
@@ -26,16 +9,21 @@ class ScrollPanel(ScrolledText):
         super().__init__(*args, **kwargs)
         self.config(state='disabled')
 
+    def __configure_tags(self):
+        self.tag_configure('error', foreground='red')
+        self.tag_configure('success', foreground='green')
+
     # tag is None just for dev phase
     def render_new_txt(self, text, tag=None):
-        self.textbox['state'] = 'normal'
-        self.textbox.insert('end', f"{text}\n", tag)
-        self.textbox.see('end')
-        self.textbox['state'] = 'disabled'
+        self.config(state ='normal')
+        self.insert('end', f"{text}\n", tag)
+        self.see('end')
+        self.config(state = 'disabled')
     
     def render_new_txt_as_label(self, text:str, root=None, **options):
         if not text.endswith("\n"):
             text += "\n"
+        
         if root:
             label = Label(self, text=text, **options)
         else:
@@ -58,9 +46,12 @@ class EntryPanel(Entry):
         self.delete(0, 'end')
 
 class RootFrame(Frame):
-    def __init__(self):
+    def __init__(self, room_connection_obj, encryption_obj):
         super().__init__()
-        
+        self.networking_obj = room_connection_obj
+        self.encryption_obj = encryption_obj    
+
+
         # the username_panel will most likely become a tree view
         # as it just lists all the connected users. Much more
         # efficient to use a tree view
@@ -72,15 +63,24 @@ class RootFrame(Frame):
         self.username_panel.pack(side='right', fill='y', anchor='w')
         self.textbox.pack(expand=1, fill="both")
 
-    def __display_msg_handler(self, username, msg):
-        if len(msg) == 0:
-            pass
-
-        self.textbox.render_new_txt()
-
-
     def __send_msg_to_server(self, msg):
-        pass
+        enc_msg = self.encryption_obj.encrypt_msg(msg)
+        status = self.networking_obj.send_enc_msg(enc_msg)
+        if status != 1:
+            self.__render_new_text('SERVER ERROR', status)
 
-    def __on_recv_msg(self, username, msg):
-        pass
+    def __render_new_text(self, username:str, msg:str):
+        """Render some text to the chat room main ScrolledText widget
+
+        Args:
+            username (str): The username
+            msg (str): The message/text to be rendered
+        """
+        text = f"<{username}> - {msg}"
+        self.textbox.render_new_txt(text, tag='error')
+
+    def __get_room_connection_obj__(self):
+        return self.networking_obj
+
+    def __get_room_connection_obj_sock__(self):
+        return self.networking_obj.__get_sock__()

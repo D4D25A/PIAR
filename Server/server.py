@@ -18,9 +18,10 @@ class Server:
         self.server_socket = socket.socket(socket.AF_INET,  socket.SOCK_STREAM) 
         self.connected_clients = []
 
+        self.__connection_listener()
+
     def __connection_listener(self):
         while True:
-            client_obj, addr = self.server_socket.accept()
-            del addr
-
+            client, addr = self.server_socket.accept()
+            client_obj = Client(client)
             self.connected_clients.append(client_obj)

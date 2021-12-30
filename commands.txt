@@ -1,0 +1,6 @@
+ID -> Meaning
+1 -> Encrypted message from client
+2 -> Encrypted message from server
+3 -> Connect to room
+4 -> Get all users in room
+6 -> Client sending public key to room
