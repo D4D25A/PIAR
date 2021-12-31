@@ -33,15 +33,16 @@ class RootWindow(Tk):
         def null():
             pass
 
-        _ = message_win.UsernameEntry(200, 200, 'Username Entry')
-        self.wait_window(_)
-        if not _.username_ok:
+        username_window = message_win.UsernameEntry(200, 200, 'Username Entry')
+        self.wait_window(username_window)
+        if not username_window.username_ok:
             pass
 
-        username = _.get_username()
+        username = username_window.get_username()
         
-        sock_handler = networking_handler.RoomConnectionHandler(ip, port, username, null)
+        sock_handler = networking_handler.MainServerConnectionHandler(ip, port, username, null)
         encryption_handler = encryption.EncryptionHandler()
+        
         frame = chat_room.RootFrame(sock_handler, encryption_handler)
         self.add_new_tab(frame, ip)
 

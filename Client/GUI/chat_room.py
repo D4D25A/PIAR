@@ -26,7 +26,7 @@ class ScrollPanel(ScrolledText):
             text += "\n"
         
         if root:
-            label = Label(self, text=text, **options)
+            label = Label(root, text=text, **options)
         else:
             label = Label(self, text=text, **options)
 

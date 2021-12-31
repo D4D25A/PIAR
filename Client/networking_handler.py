@@ -1,5 +1,7 @@
 import socket
 import pickle
+import _thread
+import time
 
 # for testing
 import string
@@ -32,32 +34,32 @@ def get_public_rooms():
     r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
     r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
     return [r1, r2, r3, r4]
+        
 
-class RoomConnectionHandler:
-    def __init__(self, ip:str, port:int, username:str, disconnect_callback):
+class AbstractNetworking:
+    def __init__(self, ip:str, port:int, disconnect_callback):
         """The connection handler for a room. Client -> Server
         Args:
             ip (str): the ip of the room
             port (int): the port of the room
-            username (str): the user's username that they put
             failure_callback (function): disconnect_callback
         """
         self.disconnect_callback = disconnect_callback
         self.s = None
-        self.username = username
         self.connected = True
         self.port = port
         self.ip = ip
+        self.threads = []
 
-        self.__initalize_sock()
-
-    def __initalize_sock(self):
+    def initalize_sock(self, err_msg=None):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.s.connect((self.ip, self.port))
+            return 1
         except (socket.error,) as e:
-            print("Failed to connect to room server...")
+            print("Failed to connect to server")
             print(e.strerror)
+            return 0
 
     def connected(self):
         try:
@@ -69,7 +71,7 @@ class RoomConnectionHandler:
             return False
 
 
-    def __send_data_to_room(self, id, data):
+    def send_data_to_server(self, id, data):
         try:
             if self.connected():
                 pickld_data = pickle.dumps({'command':id, 'data':data})
@@ -79,6 +81,10 @@ class RoomConnectionHandler:
             print("An error has occured...")
             print(e.with_traceback())
             return e
+
+    def new_listen_for_data_thread(self):
+        tr = _thread.start_new_thread(self.listen_for_data, (2048,))
+        self.threads.append(tr)
 
     # need to put this in a thread
     def __listen_for_data(self, buffer_size:int):
@@ -97,9 +103,32 @@ class RoomConnectionHandler:
     def send_enc_msg(self, enc_msg):
         self.__send_data_to_room(1, enc_msg)
         
+    def reconnect(self):
+        pass
 
     def __on_disconnect(self):
         self.disconnect_callback()
 
     def __get_sock__(self):
         return self.s
+
+class RoomHandler(AbstractNetworking):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def connect_to_room(self) -> int:
+        return self.initalize_sock()
+        
+
+class MainServerConnectionHandler(AbstractNetworking):
+    def __init__(self):
+        super().__init__("192.168.0.68", 4444, self.__on_disconnect)
+    
+    def connect_to_master_server(self):
+        status = 0
+        while not status:
+            status = self.initalize_sock()
+            time.sleep(2)
+
+    def __on_disconnect(self):
+        pass

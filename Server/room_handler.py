@@ -13,12 +13,5 @@ class Room:
     def __room_id__(self) -> str:
         return self.room_id
 
-class RoomHandler:
-    def __init__(self):
-        self.rooms = []
-    
-    def new_room(self):
-        pass
-
 if __name__ == '__main__':
     print(Room().__room_id__())
