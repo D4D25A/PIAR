@@ -1,12 +1,12 @@
 from nacl.public import PrivateKey, Box
 from nacl.utils import EncryptedMessage
 
-class Encryption:
+class EncryptionHandler:
     def __init__(self):
         self.__generate_new_keys()
     
     def __generate_new_keys(self):
-        self.private_key = PrivateKey().generate()
+        self.private_key = PrivateKey.generate()
         self.public_key = self.private_key.public_key
 
     def new_box_with_server(self, server_public_key):

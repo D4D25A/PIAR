@@ -8,6 +8,7 @@ class ScrollPanel(ScrolledText):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config(state='disabled')
+        self.__configure_tags()
 
     def __configure_tags(self):
         self.tag_configure('error', foreground='red')

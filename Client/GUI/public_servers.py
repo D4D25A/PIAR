@@ -1,13 +1,16 @@
 from tkinter import Frame, ttk
-from networking_handler import get_public_rooms
+
 
 class PublicServersFrame(Frame):
-    def __init__(self):
+    def __init__(self, root):
+        self.root = root
+
         super().__init__(background='red')
         self.table = ttk.Treeview(self)
         self.__setup_table()
         self.__display_public_rooms()
         self.table.pack(expand=1, fill='both')
+        self.table.bind('<Double-Button-1>', self.__on_double_click)
 
     def __setup_table(self):
         self.table.tag_configure('row', background='gray')
@@ -27,10 +30,16 @@ class PublicServersFrame(Frame):
         self.table.heading("keeps_logs", text="keeps logs", anchor='center')
 
     def __display_public_rooms(self):
-        rooms = get_public_rooms()
+        rooms = [['gsg234A', '192.168.0.68', 4444, 'programming', False]]
         for room in rooms:
             self.insert_new_row(room)
-        
+    
+    def __on_double_click(self, event):
+        item_id = event.widget.focus()
+        item = event.widget.item(item_id)
+        values = item['values']
+        ip, port= values[1], values[2]
+        self.root.connect_to_room(ip, port)
 
     def insert_new_row(self, room):
         id = room[0]

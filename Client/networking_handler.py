@@ -1,6 +1,11 @@
 import socket
 import pickle
 
+# for testing
+import string
+import random
+#############
+
 def new_room(id, serv_ip, serv_port, name, keeps_logs):
     """Returns an array for the room
     Args:
@@ -14,15 +19,22 @@ def new_room(id, serv_ip, serv_port, name, keeps_logs):
     """
     return [id, serv_ip, serv_port, name, keeps_logs]
 
+
+
 def get_public_rooms():
-    r1 = new_room(1, "192.168.0.0", 4444, "waterparks", False)
-    r2 = new_room(2, "192.168.0.0", 4444, "dogs", False)
-    r3 = new_room(3, "192.168.0.0", 4444, "cats", False)
-    r4 = new_room(4, "192.168.0.0", 4444, "programming", False)
+    def random_room_id(max_len:int):
+        vaild_chars = string.ascii_letters + string.octdigits
+        return "".join(random.choice(vaild_chars) for _ in range(max_len))
+    r1 = new_room(random_room_id(12), "192.168.0.0", 4444, "waterparks", False)
+    r2 = new_room(random_room_id(12), "192.168.0.0", 4445, "dogs", False)
+    r3 = new_room(random_room_id(12), "192.168.0.0", 4446, "cats", False)
+    r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
+    r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
+    r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
     return [r1, r2, r3, r4]
 
-class RoomConnection:
-    def __init__(self, ip:str, port:int, username:str, disconnect_callback:function):
+class RoomConnectionHandler:
+    def __init__(self, ip:str, port:int, username:str, disconnect_callback):
         """The connection handler for a room. Client -> Server
         Args:
             ip (str): the ip of the room
@@ -31,7 +43,7 @@ class RoomConnection:
             failure_callback (function): disconnect_callback
         """
         self.disconnect_callback = disconnect_callback
-        self.s:socket.socket = None
+        self.s = None
         self.username = username
         self.connected = True
         self.port = port
@@ -40,7 +52,7 @@ class RoomConnection:
         self.__initalize_sock()
 
     def __initalize_sock(self):
-        self.s = socket.Socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.s.connect((self.ip, self.port))
         except (socket.error,) as e:
