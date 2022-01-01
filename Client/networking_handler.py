@@ -1,134 +1,143 @@
+from nacl.public import PrivateKey, Box
+from nacl.utils import EncryptedMessage
+
+import threading
 import socket
 import pickle
-import _thread
 import time
 
-# for testing
-import string
-import random
-#############
+class Commands:
+    @staticmethod
+    def send_server_enc_msg(client_obj, enc_msg:EncryptedMessage):
+        data = pickle.dumps({'id':1, 'enc_msg':enc_msg})
+        client_obj.s.send(data)
 
-def new_room(id, serv_ip, serv_port, name, keeps_logs):
-    """Returns an array for the room
-    Args:
-        id (int): unique ID for the room. 
-        serv_ip (str): server ip for the room
-        serv_port (int): server port for the room
-        name (str): name of the room
-        keeps_logs (bool): boolean value to know if the owner keeps logs
-    Returns:
-        array: for the data to be easily put into a treeview
-    """
-    return [id, serv_ip, serv_port, name, keeps_logs]
+    @staticmethod
+    def send_creds_to_server(client_obj, username, public_key):
+        data = pickle.dumps({'id':6, 'username':username, 'public_key':public_key})
+        client_obj.s.send(data)
 
+    @staticmethod
+    def get_all_connected_clients(client_obj):
+        data = pickle.dumps({'id':4})
+        client_obj.send(data)
+    
+class RoomBackgroundHandler:
+    # 5 kb of data
+    BUFFER_SIZE = 5 * 1024
 
+    # Just pass chat room gui class here?
+    def __init__(self, room_UI, room_ip:str, room_port:int, username:str):
+        """This handles all the networking and encryption for the room.
 
-def get_public_rooms():
-    def random_room_id(max_len:int):
-        vaild_chars = string.ascii_letters + string.octdigits
-        return "".join(random.choice(vaild_chars) for _ in range(max_len))
-    r1 = new_room(random_room_id(12), "192.168.0.0", 4444, "waterparks", False)
-    r2 = new_room(random_room_id(12), "192.168.0.0", 4445, "dogs", False)
-    r3 = new_room(random_room_id(12), "192.168.0.0", 4446, "cats", False)
-    r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
-    r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
-    r4 = new_room(random_room_id(12), "192.168.0.0", 4447, "programming", False)
-    return [r1, r2, r3, r4]
-        
-
-class AbstractNetworking:
-    def __init__(self, ip:str, port:int, disconnect_callback):
-        """The connection handler for a room. Client -> Server
         Args:
-            ip (str): the ip of the room
-            port (int): the port of the room
-            failure_callback (function): disconnect_callback
+            room_UI (ChatRoomUIHandler): The frontend UI class object
+            room_ip (str): The room host IP
+            room_port (int): The room host Port
+            username (str): The client's username
         """
-        self.disconnect_callback = disconnect_callback
-        self.s = None
-        self.connected = True
-        self.port = port
-        self.ip = ip
-        self.threads = []
-
-    def initalize_sock(self, err_msg=None):
+        
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.username = username
+        print(self.username)
+        self.room_ip = room_ip
+        self.room_port = room_port
+        self.room_UI = room_UI
+        self._private_key = PrivateKey.generate()
+        self._public_key = self._private_key.public_key
+        self._box:Box = None
+
+    def connect_to_room(self):
         try:
-            self.s.connect((self.ip, self.port))
+            self.s.connect((self.room_ip, self.room_port))
+            print("Connected to server...")
+            self.connected = True
             return 1
-        except (socket.error,) as e:
-            print("Failed to connect to server")
-            print(e.strerror)
+        except socket.error as e:
+            print("There was an exception...")
+            print(e)
             return 0
 
-    def connected(self):
+    def connected(self) -> bool:
+        print("Checking if connected")
         try:
-            self.s.send("hello")
-            return True
-        except (socket.error,) as e:
-            print("Exception occurred...")
-            print(e.strerror)
-            return False
+            self.s.send(b"")
+        except socket.error:
+            print("Not connected to server!")
+            self.connected = False
+            self.connect_to_room()
 
+    def listen_for_data(self):
+        while self.connected:
+            try:
+                if data == b"":
+                    self.on_disconnect()
 
-    def send_data_to_server(self, id, data):
-        try:
-            if self.connected():
-                pickld_data = pickle.dumps({'command':id, 'data':data})
-                self.s.send(pickld_data)
-                return 1
-        except (socket.error, Exception) as e:
-            print("An error has occured...")
-            print(e.with_traceback())
-            return e
-
-    def new_listen_for_data_thread(self):
-        tr = _thread.start_new_thread(self.listen_for_data, (2048,))
-        self.threads.append(tr)
-
-    # need to put this in a thread
-    def __listen_for_data(self, buffer_size:int):
-        try:
-            while True:
-                data = self.s.recv(buffer_size)
+                data = self.sock_obj.recv(self.BUFFER_SIZE)
                 data = pickle.loads(data)
 
-                if data['command'] == 1:
-                    pass
+                # encrypted msg from server
+                if data['commmand'] == 2:
+                    if self._box:
+                        enc_msg = data['enc_msg']
+                        self._box.decrypt(enc_msg)
+                        pass
+                    print("Recieved an encrypted message but no box is available")
+                
+                # public key sent form server
+                elif data['command'] == 7:
+                    s_pub_key = data['public_key']
+                    self.on_request_new_box(s_pub_key)
 
+            except Exception as e:
+                print(e)
+                self.connected = False
+        else:
+            self.on_disconnect()
+
+    def send_command_to_server(self, cmd):
+        try:
+            data = pickle.dumps(cmd)
+            self.s.send(data)
         except Exception as e:
-            print("An exception has occured...")
+            print("An error occured sending the cmd")
             print(e)
 
-    def send_enc_msg(self, enc_msg):
-        self.__send_data_to_room(1, enc_msg)
-        
-    def reconnect(self):
+    def on_disconnect(self):
+        # render "connected to server has been lost!"
+        self.connected = False
+        del self
+
+    # ----------------------- EVENTS -----------------------
+    def on_request_new_box(self, server_public_key):
+        self.new_box(server_public_key)
+
+    def encrypt_msg(self, msg:str) -> EncryptedMessage:
         pass
 
-    def __on_disconnect(self):
-        self.disconnect_callback()
+    def decrypt_msg(self, EncryptedMessage) -> str:
+        pass
 
-    def __get_sock__(self):
-        return self.s
+    # ----------------------- Getters -----------------------
+    def __private_key__(self):
+        return self._private_key
 
-class RoomHandler(AbstractNetworking):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def connect_to_room(self) -> int:
-        return self.initalize_sock()
-        
-
-class MainServerConnectionHandler(AbstractNetworking):
-    def __init__(self):
-        super().__init__("192.168.0.68", 4444, self.__on_disconnect)
+    def __public_key__(self):
+        return self._public_key
     
-    def connect_to_master_server(self):
-        status = 0
-        while not status:
-            status = self.initalize_sock()
-            time.sleep(2)
+    def __get_box__(self):
+        return self._box
 
-    def __on_disconnect(self):
-        pass
+    # ----------------------- Setters -----------------------
+    def set_private_key(self, private_key):
+        self._private_key = private_key
+    
+    def set_public_key(self, public_key):
+        self._public_key = public_key
+
+    def new_box(self, room_public_key):
+        self._box = Box(self.__private_key__(), room_public_key)
+
+if __name__ == '__main__':
+    client = RoomBackgroundHandler("192.168.0.68", 4444, 'billyb0b')
+    client.connect_to_room()

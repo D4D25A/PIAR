@@ -38,7 +38,7 @@ class PublicServersFrame(Frame):
         item_id = event.widget.focus()
         item = event.widget.item(item_id)
         values = item['values']
-        ip, port= values[1], values[2]
+        ip, port = values[1], values[2]
         self.root.connect_to_room(ip, port)
 
     def insert_new_row(self, room):

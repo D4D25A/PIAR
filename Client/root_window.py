@@ -30,21 +30,28 @@ class RootWindow(Tk):
         return self.tab_controller
 
     def connect_to_room(self, ip, port):
+        print(f"Connecting to room... {ip}:{port}")
         def null():
             pass
-
-        username_window = message_win.UsernameEntry(200, 200, 'Username Entry')
+        
+        # This section is quite messy and honestly not a good solution. Since
+        # it works it will be implemented now but changed later.
+        ########################################################################
+        username_window = message_win.UsernameEntry(250, 100, 'Username Entry')
         self.wait_window(username_window)
-        if not username_window.username_ok:
-            pass
+        username_ok = username_window.username_ok
+        username = username_window.username
+        if not username_ok:
+            return
+        #################################################################################
 
-        username = username_window.get_username()
-        
-        sock_handler = networking_handler.MainServerConnectionHandler(ip, port, username, null)
-        encryption_handler = encryption.EncryptionHandler()
-        
-        frame = chat_room.RootFrame(sock_handler, encryption_handler)
-        self.add_new_tab(frame, ip)
+        # honestly this is quite bad. I think i should just put the
+        # networking handling inside of the GUI Class. This will make
+        room_ui = chat_room.ChatRoomUIHandler(ip, port, username )
+        if room_ui.connection_status == 1:
+            self.add_new_tab(room_ui, ip)
+
+
 
 root = RootWindow(1200, 800)
 root.mainloop()

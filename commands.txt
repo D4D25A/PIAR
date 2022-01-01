@@ -1,7 +1,11 @@
 ID -> Meaning
 1 -> Encrypted message from client
 2 -> Encrypted message from server
-3 -> Connect to room
+3 -> verify unique username (Client sends this to the server followed by a 4, 6, 9 request)
 4 -> Get all users in room
-6 -> Client sending public key to room
-7 -> Get public rooms
+5 -> Request new box ( could be server -> client or client -> server)
+6 -> Client sending creds to room server (username and public_key)
+7 -> Server sending public key to client
+8 -> Get public rooms (master server only)
+9 -> User joined the chat
+10 -> User disconnected from the chat
