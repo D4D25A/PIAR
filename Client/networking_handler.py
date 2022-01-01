@@ -8,19 +8,18 @@ import time
 
 class Commands:
     @staticmethod
-    def send_server_enc_msg(client_obj, enc_msg:EncryptedMessage):
-        data = pickle.dumps({'id':1, 'enc_msg':enc_msg})
+    def send_server_enc_msg(client_obj, enc_msg:EncryptedMessage, to:str, public_key):
+        data = pickle.dumps({'id':1, 'enc_msg':enc_msg, 'to':to, 'public_key':public_key})
         client_obj.s.send(data)
+        print("sending encrypted msg to server!")
 
     @staticmethod
     def send_creds_to_server(client_obj, username, public_key):
-        data = pickle.dumps({'id':6, 'username':username, 'public_key':public_key})
-        client_obj.s.send(data)
+        data = pickle.dumps({'id':6})
 
     @staticmethod
-    def get_all_connected_clients(client_obj):
-        data = pickle.dumps({'id':4})
-        client_obj.send(data)
+    def request_other_users_creds(client_obj):
+        data = pickle.dumps({})
     
 class RoomBackgroundHandler:
     # 5 kb of data
@@ -36,16 +35,15 @@ class RoomBackgroundHandler:
             room_port (int): The room host Port
             username (str): The client's username
         """
-        
+
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.username = username
-        print(self.username)
         self.room_ip = room_ip
         self.room_port = room_port
         self.room_UI = room_UI
-        self._private_key = PrivateKey.generate()
-        self._public_key = self._private_key.public_key
-        self._box:Box = None
+        self.private_key = PrivateKey.generate()
+        self.public_key = self.private_key.public_key
+        self.clients = {}
 
     def connect_to_room(self):
         try:
@@ -67,6 +65,15 @@ class RoomBackgroundHandler:
             self.connected = False
             self.connect_to_room()
 
+    def new_box(self, public_key) -> Box:
+        return Box(self.private_key, public_key)
+
+    def on_new_user_joined(self, username, public_key):
+        clients[username] = public_key
+
+    def on_new_user_left(self, username):
+        del clients[username]
+
     def listen_for_data(self):
         while self.connected:
             try:
@@ -78,10 +85,14 @@ class RoomBackgroundHandler:
 
                 # encrypted msg from server
                 if data['commmand'] == 2:
-                    if self._box:
-                        enc_msg = data['enc_msg']
-                        self._box.decrypt(enc_msg)
-                        pass
+                    enc_msg = data['enc_msg']
+                    public_key = data['public_key']
+                    box = self.new_box(public_key)
+                    msg = box.decrypt(enc_msg)
+                    
+                    print(f"Encrypted msg: {enc_msg}")
+                    print(f"Decrypted msg: {msg}")
+                    self.room_UI.render_new_msg(msg)
                     print("Recieved an encrypted message but no box is available")
                 
                 # public key sent form server
@@ -89,54 +100,31 @@ class RoomBackgroundHandler:
                     s_pub_key = data['public_key']
                     self.on_request_new_box(s_pub_key)
 
+                # user connected to chat
+                elif data['command'] == 9:
+                    msg = data['msg']
+                    self.room_UI.render_new_msg(msg)
+
+                # user disconnected from chat
+                elif data['command'] == 10:
+                    msg = data['msg']
+                    self.room_UI.render_new_msg(msg)
+
+                # server sending creds
+                elif data['command'] == 11:
+                    self.clients = data['creds']
+                    print(self.clients)
+
             except Exception as e:
                 print(e)
                 self.connected = False
         else:
             self.on_disconnect()
 
-    def send_command_to_server(self, cmd):
-        try:
-            data = pickle.dumps(cmd)
-            self.s.send(data)
-        except Exception as e:
-            print("An error occured sending the cmd")
-            print(e)
-
     def on_disconnect(self):
         # render "connected to server has been lost!"
         self.connected = False
         del self
-
-    # ----------------------- EVENTS -----------------------
-    def on_request_new_box(self, server_public_key):
-        self.new_box(server_public_key)
-
-    def encrypt_msg(self, msg:str) -> EncryptedMessage:
-        pass
-
-    def decrypt_msg(self, EncryptedMessage) -> str:
-        pass
-
-    # ----------------------- Getters -----------------------
-    def __private_key__(self):
-        return self._private_key
-
-    def __public_key__(self):
-        return self._public_key
-    
-    def __get_box__(self):
-        return self._box
-
-    # ----------------------- Setters -----------------------
-    def set_private_key(self, private_key):
-        self._private_key = private_key
-    
-    def set_public_key(self, public_key):
-        self._public_key = public_key
-
-    def new_box(self, room_public_key):
-        self._box = Box(self.__private_key__(), room_public_key)
 
 if __name__ == '__main__':
     client = RoomBackgroundHandler("192.168.0.68", 4444, 'billyb0b')

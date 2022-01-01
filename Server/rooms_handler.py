@@ -16,123 +16,88 @@ class Client(threading.Thread):
             room_server (room_handler [Listener]): room main server
         """
         threading.Thread.__init__(self)
-        self.room_server = room_server
+        self.room = room_server
         self.client_sock = client_sock_obj
-        self.client_public_key = None
-        self.client_username = None
-        self.box:Box = None
+        self.private_key = PrivateKey.generate()
+        self.public_key = self.private_key.public_key
         self.connected = True
+        self.username = None
 
     def run(self):
         self.listen_for_data()
 
     def listen_for_data(self):
+        msg = f"<{self.username}> has joined the chat!"
+        self.room.broadcast_data({'command':9, 'msg':msg})
         print("Listening for data...")
         while self.connected:
             try:
                 data = self.client_sock.recv(self.BUFFER_SIZE)
                 data = pickle.loads(data)
 
-                # encrypted msg from client
+                # encrypted message from client
+                # broadcasts the message to all 
+                # the other connected sockets
                 if data['command'] == 1:
-                    print("Recieved encrypted msg from client")
-                    pckld_msg = data['enc_msg']
-                    enc_msg = pickle.loads(pckld_msg)
-                    self.room_server.on_recv_msg(enc_msg)
+                    to = data['to']
+                    enc_msg = data['enc_msg']
+                    public_key = data['public_key']
+                    for client in self.room.clients:
+                        if client.username == to:
+                            pckld_data = pickle.dumps({
+                                'command':2,
+                                'to':to, 
+                                'enc_msg':enc_msg, 
+                                'public_key':public_key
+                            })
+                            client.client_sock.send(pckld_data)
+                            print(f"Relayed the message to {client.username}...")
+                            break
 
-                # verify unique username
-                if data['command'] == 3:
-                    username = data['username']
-                    if username in self.room_server.keys:
-                        print("Sending response NOT UNIQUE")
-                        self.client_sock.send('NOT UNIQUE'.encode('ascii'))
+                # verify username
+                elif data['command'] == 3:
+                    for client in self.room.clients:
+                        if client.username == data['username']:
+                            self.client_sock.send(b"NO")
+                            return
                     else:
-                        print("sending response OK")
-                        self.client_sock.send('OK'.encode('ascii'))
+                        self.client_sock.send(b"OK")
 
-                # get all users in the room
-                if data['command'] == 4:
-                    pass
+                # client senting creds
+                elif data['command'] == 6:
+                    new_creds = {}
+                    for client in self.room.clients:
+                        new_creds[client.username] = client.public_key
+                    self.room.broadcast_data({'command':11, 'creds':new_creds})
                 
-                # creds of the client (public_key and username)
-                if data['command'] == 6:
-                    username, self.client_public_key = data['username'], data['public_key']
-                    # create a box
-                    self.box = Box(self.room_server.private_key, self.client_public_key)
-
-
-
-                # client sending public key here
-                if data['command'] == 9:
-                    pass
-                    
-            except Exception as e:
-                print(e)
-                self.connected = False
-        else:
-            self.on_disconnect()
-
-    def on_disconnect(self):
-        print("on_disconnect called!")
-        del self
-
-    def decrypt_msg(self, enc_msg:EncryptedMessage):
-        """Decrypts an encrypted message from the client to be
-        fowarded on
-
-        Args:
-            enc_msg (EncryptedMessage): Encrypted message object
-
-        Returns:
-            str: plaintext of the ciphertext
-        """
-
-        return self.box.decrypt(enc_msg)
-
-    def send_new_msg(self, msg:str):
-        """Sends an encrypted message to the client
-
-        Args:
-            msg (str): Message in plaintext
-        """
-        enc_msg = self.box.encrypt(bytes(msg, 'utf-8'))
-        data = {'command':2, 'enc_msg':enc_msg}
-        data = pickle.dumps(data)
-        self.client_sock.send(data)
+                else:
+                    continue
+            except:
+                pass
 
 class Listener:
     BUFFER_SIZE = 5 * 1024
 
     def __init__(self, listen_ip, listen_port):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.boxes = {}
-        self.threads = []
-        self.clients = []
-        self.keys = {}
         self.listen_port = listen_port
         self.listen_ip = listen_ip
-        self.private_key = PrivateKey.generate()
-        self.public_key = self.private_key.public_key
+        self.clients = []
+
         self.sock_config()
-        self.start_new_thread(self.listen_for_connections)
+        self.listen_for_connections()
 
     def sock_config(self):
         while True:
             try:
-                time.sleep(5)
                 print("Trying to bind...")
                 self.s.bind((self.listen_ip, self.listen_port))
                 print("Binded...")
                 break
             except:
+                time.sleep(2)
                 continue
         self.s.listen()
-
-    def start_new_thread(self, target):
-        tr = threading.Thread(target=target)
-        tr.start()
-        tr.join()
-        self.threads.append(tr)
 
     def listen_for_connections(self):
         print(f"Room listening on {self.listen_ip}:{self.listen_port}")
@@ -146,8 +111,14 @@ class Listener:
             print("There was an error...")
             print(e)
 
-    def broadcast_msg(self):
-        pass
+    def on_user_disconnect(self, username):
+        msg = f"<{username}> has disconnected from the chat!"
+        self.broadcast_data({'command':})
+
+    def broadcast_data(self, data):
+        pckld_data = pickle.dumps(data)
+        for client in self.clients:
+            client.client_sock.send(pckld_data)
 
 if __name__ == '__main__':
     Listener("192.168.0.68", 4444)

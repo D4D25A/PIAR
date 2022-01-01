@@ -9,3 +9,4 @@ ID -> Meaning
 8 -> Get public rooms (master server only)
 9 -> User joined the chat
 10 -> User disconnected from the chat
+11 -> Server sending all user creds

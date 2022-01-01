@@ -1,7 +1,6 @@
 from tkinter import Tk, ttk
 from GUI import welcome_window, public_servers, chat_room, message_win
 import networking_handler
-import encryption
 
 class RootWindow(Tk):
     def __init__(self, w:int, h:int):
@@ -45,11 +44,11 @@ class RootWindow(Tk):
             return
         #################################################################################
 
-        # honestly this is quite bad. I think i should just put the
-        # networking handling inside of the GUI Class. This will make
         room_ui = chat_room.ChatRoomUIHandler(ip, port, username )
         if room_ui.connection_status == 1:
             self.add_new_tab(room_ui, ip)
+        room_ui.send_creds()
+        room_ui.render_new_msg('<billyb0b> Hello david')
 
 
 
