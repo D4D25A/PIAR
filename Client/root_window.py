@@ -48,7 +48,8 @@ class RootWindow(Tk):
         if room_ui.connection_status == 1:
             self.add_new_tab(room_ui, ip)
         room_ui.send_creds()
-        room_ui.render_new_msg('<billyb0b> Hello david')
+        
+        # room_ui.render_new_msg('<billyb0b> Hello david')
 
 
 

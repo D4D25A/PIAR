@@ -1,3 +1,4 @@
+import pickle
 from tkinter import Entry, Frame, LabelFrame, Label, messagebox
 from tkinter.scrolledtext import ScrolledText  
 from time_funcs import Time
@@ -15,17 +16,32 @@ class ChatRoomUIHandler(Frame):
             messagebox.showerror('Error', "There was an error connecting to the server")
             return
 
+        data = pickle.dumps({'command':3, 'username':self.username})
+        self.client_obj.s.send(data)
+        data = self.client_obj.s.recv(1024)
+        print(data)
+        try:
+            res = data.decode('utf-8')
+        except:
+            data = pickle.loads(data)
+            res = data['msg']
+
+        print(res)
+        if res == "NO":
+            messagebox.showerror('Error', "Try a different username")
+            return
+
         self.display_widgets()
-        self.send_creds()
+        self.client_obj.data_listener_tr.start()
+        # self.send_creds()
 
     # send username, public_key
     def send_creds(self):
         networking_handler.Commands.send_creds_to_server(
             self.client_obj, 
             self.username, 
-            self.client_obj.public_key()
+            self.client_obj.public_key
         )
-
 
     def display_widgets(self):
         self.user_input = Entry(self)
@@ -37,8 +53,8 @@ class ChatRoomUIHandler(Frame):
         self.text_area.pack(expand=1, fill="both")
         self.text_area.config(state='disabled')
 
-
-    def render_new_msg(self, msg:str):
+    def render_new_msg(self, msg):
+        print(msg)
         if not msg.endswith("\n"):
             msg += "\n"
 
@@ -53,12 +69,11 @@ class ChatRoomUIHandler(Frame):
         
         # check msg
         if len(msg) == 0:
-            pass
+            return
         msg = f"<{self.username}> {msg}"
         
         # send input to server 
-        enc_msg = self.client_obj.encrypt_msg(msg)
-        print(enc_msg)
-        networking_handler.Commands.send_server_enc_msg(self.client_obj, enc_msg)
+        self.client_obj.relay_msg(msg)
+        
         
     

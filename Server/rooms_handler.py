@@ -1,9 +1,11 @@
 from nacl.public import PrivateKey, Box
 from nacl.utils import EncryptedMessage
 import threading
+import logging
 import socket
 import pickle
 import time
+
 
 class Client(threading.Thread):
     # 5 kb of data
@@ -18,10 +20,10 @@ class Client(threading.Thread):
         threading.Thread.__init__(self)
         self.room = room_server
         self.client_sock = client_sock_obj
-        self.private_key = PrivateKey.generate()
-        self.public_key = self.private_key.public_key
+        self.public_key = None
         self.connected = True
         self.username = None
+        self.alive = True
 
     def run(self):
         self.listen_for_data()
@@ -42,6 +44,7 @@ class Client(threading.Thread):
                     to = data['to']
                     enc_msg = data['enc_msg']
                     public_key = data['public_key']
+                    print(data)
                     for client in self.room.clients:
                         if client.username == to:
                             pckld_data = pickle.dumps({
@@ -58,22 +61,35 @@ class Client(threading.Thread):
                 elif data['command'] == 3:
                     for client in self.room.clients:
                         if client.username == data['username']:
-                            self.client_sock.send(b"NO")
+                            self.client_sock.send("NO".encode('ascii'))
                             return
                     else:
-                        self.client_sock.send(b"OK")
+                        self.client_sock.send("OK".encode('ascii'))
 
                 # client senting creds
                 elif data['command'] == 6:
-                    new_creds = {}
-                    for client in self.room.clients:
-                        new_creds[client.username] = client.public_key
-                    self.room.broadcast_data({'command':11, 'creds':new_creds})
-                
+                    self.username = data['username']
+                    self.public_key = data['public_key']
+                    print("Recieved code 6 from client")
+                    print(data)
+                    print(self.username, self.public_key)
+                    # self.room.clients[self.username] = self.public_key
+                    self.room.broadcast_new_user_list()
+
                 else:
                     continue
-            except:
-                pass
+            except Exception as e:
+                logging.error(e)
+                self.room.on_user_disconnect(self.username)
+                self.client_sock.close()
+                self.alive = False
+                self.room.clients.pop(self.room.clients.index(self))
+                print(self.room.clients)
+                del self
+
+    def get_creds(self):
+        return {self.username: self.public_key}
+
 
 class Listener:
     BUFFER_SIZE = 5 * 1024
@@ -103,17 +119,31 @@ class Listener:
         print(f"Room listening on {self.listen_ip}:{self.listen_port}")
         try:
             while True:
+                print("\n\nListening...\n\n")
                 client_obj, addr = self.s.accept()
+                print("Recieved new client req!")
                 c_tr = Client(client_obj, self)
                 c_tr.start()
+                # c_tr.join()
                 self.clients.append(c_tr)
+                print(self.clients)
         except socket.error as e:
             print("There was an error...")
             print(e)
 
+    def broadcast_new_user_list(self):
+        print(self.clients)
+        new_creds = {}
+        for client in self.clients:
+            print(self.clients)
+            new_creds[client.username] = client.public_key
+        print(f"new_creds: {new_creds}")
+        self.broadcast_data({'command':11, 'creds':new_creds})
+
     def on_user_disconnect(self, username):
         msg = f"<{username}> has disconnected from the chat!"
-        self.broadcast_data({'command':})
+        self.broadcast_data({'command':10, 'msg':msg})
+        self.broadcast_new_user_list()
 
     def broadcast_data(self, data):
         pckld_data = pickle.dumps(data)
