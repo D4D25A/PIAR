@@ -18,6 +18,11 @@ class Commands:
     def send_creds_to_server(client_obj, username, public_key):
         data = pickle.dumps({'command':6, 'username':username, 'public_key':public_key})
         client_obj.s.send(data)
+
+    @staticmethod
+    def verify_unique_username(client_obj, username):
+        data = pickle.dumps({'command':3, 'username':username})
+        client_obj.s.send(data)
     
     # @staticmethod
     # def request_other_users_creds(client_obj):
@@ -29,7 +34,7 @@ class RoomBackgroundHandler:
     BUFFER_SIZE = 5 * 1024
 
     # Just pass chat room gui class here?
-    def __init__(self, room_UI, room_ip:str, room_port:int, username:str):
+    def __init__(self, room_UI, room_ip:str, room_port:int, username:str, username_verification_callback):
         """This handles all the networking and encryption for the room.
 
         Args:
@@ -40,6 +45,7 @@ class RoomBackgroundHandler:
         """
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.user_veri_call = username_verification_callback
         self.username = username
         self.room_ip = room_ip
         self.room_port = room_port
@@ -47,6 +53,7 @@ class RoomBackgroundHandler:
         self.private_key = PrivateKey.generate()
         self.public_key = self.private_key.public_key
         self.clients = {}
+        self.username_unique = False
 
         self.data_listener_tr = threading.Thread(target=self.listen_for_data)
 
@@ -73,11 +80,8 @@ class RoomBackgroundHandler:
     def new_box(self, public_key) -> Box:
         return Box(self.private_key, public_key)
 
-    def on_new_user_joined(self, username, public_key):
-        self.clients[username] = public_key
-
-    def on_new_user_left(self, username):
-        del self.clients[username]
+    def verify_unique_username(self):
+        Commands.verify_unique_username(self, self.username)
 
     def relay_msg(self, msg:str):
         print(self.clients.items())
@@ -103,11 +107,22 @@ class RoomBackgroundHandler:
                     box = self.new_box(public_key)
                     msg = box.decrypt(enc_msg).decode('utf-8')
                     
-                    print(f"Encrypted msg: {enc_msg}")
-                    print(f"Decrypted msg: {msg}")
+                    # print(f"Encrypted msg: {enc_msg}")
+                    # print(f"Decrypted msg: {msg}")
                     self.room_UI.render_new_msg(msg)
-                    print("Recieved an encrypted message but no box is available")
                 
+                # username unique response
+                if data['command'] == 5:
+                    print("Recieved code 5 from the server")
+                    print(data)
+                    if data['res'] == "OK":
+                        print("Setting username unique to true")
+                        self.username_unique = True
+                    else:
+                        self.username_unique = False
+                    self.user_veri_call(self.username_unique)
+                    print("Done")
+
                 # public key sent from server
                 elif data['command'] == 7:
                     print("Sent public key to server")
