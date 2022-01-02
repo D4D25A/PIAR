@@ -29,9 +29,9 @@ class Client(threading.Thread):
         self.listen_for_data()
 
     def listen_for_data(self):
-        msg = f"<{self.username}> has joined the chat!"
-        self.room.broadcast_data({'command':9, 'msg':msg})
-        print("Listening for data...")
+        # msg = f"<{self.username}> has joined the chat!"
+        # self.room.broadcast_data({'command':9, 'msg':msg})
+        # print("Listening for data...")
         while self.connected:
             try:
                 data = self.client_sock.recv(self.BUFFER_SIZE)
@@ -44,7 +44,7 @@ class Client(threading.Thread):
                     to = data['to']
                     enc_msg = data['enc_msg']
                     public_key = data['public_key']
-                    print(data)
+                    # print(data)
                     for client in self.room.clients:
                         if client.username == to:
                             pckld_data = pickle.dumps({
@@ -54,25 +54,31 @@ class Client(threading.Thread):
                                 'public_key':public_key
                             })
                             client.client_sock.send(pckld_data)
-                            print(f"Relayed the message to {client.username}...")
+                            # print(f"Relayed the message to {client.username}...")
                             break
 
                 # verify username
                 elif data['command'] == 3:
+                    res = {'command':5}
                     for client in self.room.clients:
                         if client.username == data['username']:
-                            self.client_sock.send("NO".encode('ascii'))
+                            res['res'] = "NO"
+                            self.on_disconnect()
                             return
                     else:
-                        self.client_sock.send("OK".encode('ascii'))
+                        res['res'] = "OK"
+                    # print("Sending response 5...")
+                    # print(res)
+                    data = pickle.dumps(res)
+                    self.client_sock.send(data)
 
                 # client senting creds
                 elif data['command'] == 6:
                     self.username = data['username']
                     self.public_key = data['public_key']
-                    print("Recieved code 6 from client")
-                    print(data)
-                    print(self.username, self.public_key)
+                    # print("Recieved code 6 from client")
+                    # print(data)
+                    # print(self.username, self.public_key)
                     # self.room.clients[self.username] = self.public_key
                     self.room.broadcast_new_user_list()
 
@@ -80,12 +86,15 @@ class Client(threading.Thread):
                     continue
             except Exception as e:
                 logging.error(e)
-                self.room.on_user_disconnect(self.username)
-                self.client_sock.close()
-                self.alive = False
-                self.room.clients.pop(self.room.clients.index(self))
-                print(self.room.clients)
-                del self
+                self.on_disconnect()
+
+    def on_disconnect(self):
+        self.room.on_user_disconnect(self.username)
+        self.client_sock.close()
+        self.alive = False
+        self.room.clients.pop(self.room.clients.index(self))
+        # print(self.room.clients)
+        del self
 
     def get_creds(self):
         return {self.username: self.public_key}
@@ -119,25 +128,21 @@ class Listener:
         print(f"Room listening on {self.listen_ip}:{self.listen_port}")
         try:
             while True:
-                print("\n\nListening...\n\n")
                 client_obj, addr = self.s.accept()
                 print("Recieved new client req!")
                 c_tr = Client(client_obj, self)
                 c_tr.start()
-                # c_tr.join()
                 self.clients.append(c_tr)
-                print(self.clients)
+                print("Created and started a new thread for the client req... Listening again!")
         except socket.error as e:
             print("There was an error...")
             print(e)
 
     def broadcast_new_user_list(self):
-        print(self.clients)
         new_creds = {}
         for client in self.clients:
-            print(self.clients)
             new_creds[client.username] = client.public_key
-        print(f"new_creds: {new_creds}")
+        # print(f"new_creds: {new_creds}")
         self.broadcast_data({'command':11, 'creds':new_creds})
 
     def on_user_disconnect(self, username):

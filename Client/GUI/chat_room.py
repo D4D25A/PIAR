@@ -1,4 +1,5 @@
 import pickle
+import time
 from tkinter import Entry, Frame, LabelFrame, Label, messagebox
 from tkinter.scrolledtext import ScrolledText  
 from time_funcs import Time
@@ -6,34 +7,33 @@ import networking_handler
 
 class ChatRoomUIHandler(Frame):
     def __init__(self, ip, port, username):
+        # this will be called after "verify_unique_username()"
+        def username_verification_callback(unique):
+            if unique:
+                self.display_widgets()
+            else:
+                messagebox.showerror('Error', "Try a different username")
+
+
         super().__init__() 
         self.room_ip = ip
         self.room_port = port
         self.username = username
-        self.client_obj = networking_handler.RoomBackgroundHandler(self, ip, port, username)
+        self.client_obj = networking_handler.RoomBackgroundHandler(
+            self, 
+            ip, 
+            port,
+            username, 
+            username_verification_callback
+        )
+        
         self.connection_status = self.client_obj.connect_to_room()
         if self.connection_status == 0:
             messagebox.showerror('Error', "There was an error connecting to the server")
             return
 
-        data = pickle.dumps({'command':3, 'username':self.username})
-        self.client_obj.s.send(data)
-        data = self.client_obj.s.recv(1024)
-        print(data)
-        try:
-            res = data.decode('utf-8')
-        except:
-            data = pickle.loads(data)
-            res = data['msg']
-
-        print(res)
-        if res == "NO":
-            messagebox.showerror('Error', "Try a different username")
-            return
-
-        self.display_widgets()
         self.client_obj.data_listener_tr.start()
-        # self.send_creds()
+        self.client_obj.verify_unique_username()
 
     # send username, public_key
     def send_creds(self):
@@ -44,6 +44,7 @@ class ChatRoomUIHandler(Frame):
         )
 
     def display_widgets(self):
+        print("Displaying widgets...")
         self.user_input = Entry(self)
         self.text_area = ScrolledText(self)
 
