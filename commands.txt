@@ -10,4 +10,4 @@ ID -> Meaning
 9 -> User joined the chat
 10 -> User disconnected from the chat
 11 -> Server sending all user creds
-
+12 -> username not unique acknowledgement

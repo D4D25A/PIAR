@@ -2,12 +2,13 @@ from nacl.public import PrivateKey, Box
 from nacl.utils import EncryptedMessage
 import threading
 import logging
+import random
 import socket
 import pickle
+import string
 import time
 
-
-class Client:
+class Client(threading.Thread):
     # 5 kb of data
     BUFFER_SIZE = 5 * 1024
 
@@ -17,80 +18,94 @@ class Client:
             client_obj (client from accept()): client object
             room_server (room_handler [Listener]): room main server
         """
+        threading.Thread.__init__(self)
         self.room = room_server
         self.client_sock = client_sock_obj
         self.public_key = None
         self.connected = True
         self.username = None
         self.alive = True
+        self.id = self.generate_random_id()
 
-    def listen_for_data(self):
-        # msg = f"<{self.username}> has joined the chat!"
-        # self.room.broadcast_data({'command':9, 'msg':msg})
-        # print("Listening for data...")
-        while self.connected:
+    def run(self):
+        while True:
             try:
-                data = self.client_sock.recv(self.BUFFER_SIZE)
-                data = pickle.loads(data)
-
-                # encrypted message from client
-                # broadcasts the message to all 
-                # the other connected sockets
-                if data['command'] == 1:
-                    to = data['to']
-                    enc_msg = data['enc_msg']
-                    public_key = data['public_key']
-                    # print(data)
-                    for client in self.room.clients:
-                        if client.username == to:
-                            pckld_data = pickle.dumps({
-                                'command':2,
-                                'to':to, 
-                                'enc_msg':enc_msg, 
-                                'public_key':public_key
-                            })
-                            client.client_sock.send(pckld_data)
-                            # print(f"Relayed the message to {client.username}...")
-                            break
-
-                # verify username
-                elif data['command'] == 3:
-                    res = {'command':5}
-                    for client in self.room.clients:
-                        if client.username == data['username']:
-                            res['res'] = "NO"
-                            self.on_disconnect()
-                            return
-                    else:
-                        res['res'] = "OK"
-                    # print("Sending response 5...")
-                    # print(res)
-                    data = pickle.dumps(res)
-                    self.client_sock.send(data)
-
-                # client senting creds
-                elif data['command'] == 6:
-                    self.username = data['username']
-                    self.public_key = data['public_key']
-                    # print("Recieved code 6 from client")
-                    # print(data)
-                    # print(self.username, self.public_key)
-                    # self.room.clients[self.username] = self.public_key
-                    self.room.broadcast_new_user_list()
-
-                else:
-                    continue
+                self.listen_for_data()
             except Exception as e:
+                print("An exception as occured")
                 logging.error(e)
                 self.on_disconnect()
 
-    def on_disconnect(self):
-        self.room.on_user_disconnect(self.username)
-        self.client_sock.close()
+    def generate_random_id(self):
+        legal_chars = string.ascii_letters + string.digits
+        return "".join(random.choice(legal_chars) for _ in range(40))
+    
+    def listen_for_data(self):
+        print("Listening for data...")
+        data = self.client_sock.recv(self.BUFFER_SIZE)
+        data = pickle.loads(data)
+
+        # encrypted message from client
+        if data['command'] == 1:
+            to = data['to']
+            enc_msg = data['enc_msg']
+            public_key = data['public_key']
+            # print(data)
+            for client in self.room.clients:
+                if client.username == to:
+                    pckld_data = pickle.dumps({
+                        'command':2,
+                        'to':to, 
+                        'enc_msg':enc_msg, 
+                        'public_key':public_key
+                    })
+                    client.client_sock.send(pckld_data)
+                    print(f"Sending command 2 to {to}")
+                    # print(f"Relayed the message to {client.username}...")
+                    break
+
+            # verify username
+        elif data['command'] == 3:
+            res = {'command':5}
+            for client in self.room.clients:
+                if client.username == data['username']:
+                    print("Res is no!")
+                    res['res'] = "NO"
+                    break
+                res['res'] = "OK"
+
+            print("Sending response 5...")
+            data = pickle.dumps(res)
+            print(f"Sending the res {res}")
+            self.client_sock.send(data)
+
+        # client senting creds
+        elif data['command'] == 6:
+            self.username = data['username']
+            self.public_key = data['public_key']
+            # print("Recieved code 6 from client")
+            # print(data)
+            # print(self.username, self.public_key)
+            # self.room.clients[self.username] = self.public_key
+            self.room.broadcast_new_user_list()
+
+        # acknowledge bad username (close self)
+        elif data['command'] == 12:
+            print("Recieved acknowledgement from client!")
+            self.on_disconnect(broadcast=False)
+
+        else:
+            print(data)
+
+    def on_disconnect(self, broadcast=True):
+        print("On disconnect called.")
         self.alive = False
-        self.room.clients.pop(self.room.clients.index(self))
-        # print(self.room.clients)
-        del self
+        self.client_sock.shutdown(socket.SHUT_RDWR)
+        self.client_sock.close()
+        self.room.remove_client(self.id)
+        if broadcast:
+            print("Broadcasting")
+            self.room.on_user_disconnect(self.username)
 
     def get_creds(self):
         return {self.username: self.public_key}
@@ -127,8 +142,7 @@ class Listener:
                 client_obj, addr = self.s.accept()
                 print("Recieved new client req!")
                 c = Client(client_obj, self)
-                c_tr = threading.Thread(target=c.listen_for_data)
-                c_tr.start()
+                c.start()
                 self.clients.append(c)
                 print("Created and started a new thread for the client req... Listening again!")
         except socket.error as e:
@@ -151,6 +165,13 @@ class Listener:
         pckld_data = pickle.dumps(data)
         for client in self.clients:
             client.client_sock.send(pckld_data)
+
+    def remove_client(self, id):
+        for i, client in enumerate(self.clients):
+            if client.id == id:
+                del self.clients[i]
+                return 1
+        return 0
 
 if __name__ == '__main__':
     s = Listener("192.168.0.68", 4444)
