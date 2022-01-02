@@ -1,6 +1,5 @@
 from nacl.public import PrivateKey, Box
 from nacl.utils import EncryptedMessage
-import _thread as thread
 import threading
 import logging
 import socket
