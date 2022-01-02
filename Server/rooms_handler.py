@@ -1,5 +1,6 @@
 from nacl.public import PrivateKey, Box
 from nacl.utils import EncryptedMessage
+import _thread as thread
 import threading
 import logging
 import socket
@@ -7,7 +8,7 @@ import pickle
 import time
 
 
-class Client(threading.Thread):
+class Client:
     # 5 kb of data
     BUFFER_SIZE = 5 * 1024
 
@@ -17,16 +18,12 @@ class Client(threading.Thread):
             client_obj (client from accept()): client object
             room_server (room_handler [Listener]): room main server
         """
-        threading.Thread.__init__(self)
         self.room = room_server
         self.client_sock = client_sock_obj
         self.public_key = None
         self.connected = True
         self.username = None
         self.alive = True
-
-    def run(self):
-        self.listen_for_data()
 
     def listen_for_data(self):
         # msg = f"<{self.username}> has joined the chat!"
@@ -110,7 +107,7 @@ class Listener:
         self.clients = []
 
         self.sock_config()
-        self.listen_for_connections()
+        # self.listen_for_connections()
 
     def sock_config(self):
         while True:
@@ -130,9 +127,10 @@ class Listener:
             while True:
                 client_obj, addr = self.s.accept()
                 print("Recieved new client req!")
-                c_tr = Client(client_obj, self)
+                c = Client(client_obj, self)
+                c_tr = threading.Thread(target=c.listen_for_data)
                 c_tr.start()
-                self.clients.append(c_tr)
+                self.clients.append(c)
                 print("Created and started a new thread for the client req... Listening again!")
         except socket.error as e:
             print("There was an error...")
@@ -156,4 +154,6 @@ class Listener:
             client.client_sock.send(pckld_data)
 
 if __name__ == '__main__':
-    Listener("192.168.0.68", 4444)
+    s = Listener("192.168.0.68", 4444)
+    thread = threading.Thread(target=s.listen_for_connections)
+    thread.start()
