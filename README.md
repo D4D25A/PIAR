@@ -7,3 +7,4 @@ To get started as a client you need to open the client directory and run ```clie
 # TODO
 * script doesn't stop when closing the tkinter window
 * the project is messy and requires deep cleaning 
+* need to add a .gitignore
