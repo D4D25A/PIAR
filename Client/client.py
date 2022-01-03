@@ -1,10 +1,11 @@
-from GUI import welcome_window, public_servers, chat_room, message_win
-from tkinter import Tk, ttk, Entry, messagebox
+from tkinter import Tk, Entry
+from tkinter.constants import WORD
 from tkinter.scrolledtext import ScrolledText
 import networking_handler
 import sys
 
 class RootWindow(Tk):
+    WELCOME_TEXT = """Thanks for choosing PIAR for your privacy needs :) \nThe project is fully open source and always looking for new developers! \nBefore you join a room it is recommened to use a VPN or a proxy to hide your IP. \nWe can't control if a server owner modifies a script to log connections.\nType /help for help"""
     def __init__(self, w:int, h:int):
         super().__init__()
         self.w = w
@@ -16,6 +17,7 @@ class RootWindow(Tk):
 
         self.__setup_tk_config()
         self.display_widgets()
+        self.render_new_msg(self.WELCOME_TEXT, 'green')
 
     def __setup_tk_config(self):
         self.title("PIAR - Privacy Is A Right [DEV PHASE]")
@@ -24,7 +26,7 @@ class RootWindow(Tk):
 
     def display_widgets(self):
         self.user_input = Entry(self)
-        self.text_area = ScrolledText(self, bg="black")
+        self.text_area = ScrolledText(self, bg="black", wrap=WORD)
 
         self.user_input.pack(side='bottom', fill='x', anchor='s')
         self.user_input.bind("<Return>", self.on_enter_pressed)
@@ -33,6 +35,7 @@ class RootWindow(Tk):
         self.text_area.config(state='disabled') 
         self.text_area.tag_configure('red', foreground='red')
         self.text_area.tag_configure('green', foreground='green')
+        self.text_area.tag_configure('purple', foreground='purple')
 
     def render_new_msg(self, msg, tag=None):
         if not msg.endswith("\n"):
@@ -95,7 +98,9 @@ class RootWindow(Tk):
                 self.render_new_msg("Not currently inside a room", 'red')
         
         elif cmd[0] == "help":
-            pass
+            self.render_new_msg("/help => displays all commands", 'purple')
+            self.render_new_msg("/join <IP> <PORT> <USERNAME> => joins a new room", 'purple')
+            self.render_new_msg("/disconnect => disconnect from the current room (NOT WORKING)", 'purple')
 
         else:
             self.render_new_msg("Invaild command", 'red')
@@ -127,3 +132,13 @@ def on_exit():
     root.quit()
     root.room_handler.on_disconnect()
     sys.exit()
+
+def main():
+    global root 
+
+    root = RootWindow(1200, 800)
+    root.protocol("WM_DELETE_WINDOW", on_exit)
+    root.mainloop()
+
+if __name__ == '__main__':
+    main()

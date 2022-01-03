@@ -5,6 +5,7 @@ import socket
 import pickle
 import string
 import time
+import os
 
 class Client(threading.Thread):
     # 5 kb of data
@@ -170,3 +171,20 @@ class Listener:
                 del self.clients[i]
                 return 1
         return 0
+
+def main():
+    if os.name == "nt":
+        os.system('cls')
+    elif os.name == "posix":
+        os.system('clear')
+    else:
+        print("Unknown os!")
+
+    server_ip = str(input("Enter the server ip: "))
+    server_port = int(input("Enter the server port: "))
+    s = Listener(server_ip, server_port)
+    thread = threading.Thread(target=s.listen_for_connections)
+    thread.start()
+
+if __name__ == '__main__':
+    main()
