@@ -1,5 +1,3 @@
-from nacl.public import PrivateKey, Box
-from nacl.utils import EncryptedMessage
 import threading
 import logging
 import random
@@ -172,8 +170,3 @@ class Listener:
                 del self.clients[i]
                 return 1
         return 0
-
-if __name__ == '__main__':
-    s = Listener("192.168.0.68", 4444)
-    thread = threading.Thread(target=s.listen_for_connections)
-    thread.start()

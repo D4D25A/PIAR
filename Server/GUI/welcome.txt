@@ -1,4 +1,0 @@
-Welcome! Thanks for choosing PIAR for your anonymity. PIAR keeps zero logs and has
-no idea if you used the software or not. With the server page you can setup and create
-your own room with your own topic of choice. The room can be private or public and is
-configured with end-to-end encryption automatically.

@@ -127,8 +127,3 @@ def on_exit():
     root.quit()
     root.room_handler.on_disconnect()
     sys.exit()
-
-if __name__ == '__main__':
-    root = RootWindow(1200, 800, )
-    root.protocol("WM_DELETE_WINDOW", on_exit)
-    root.mainloop()
