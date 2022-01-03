@@ -1,4 +1,4 @@
-# Custom-E2E-IRC
+# PIAR - Privacy is a right
 Custom chatting platform with End-To-End encryption similar to regular IRC's. This project is open source designed to be anonymous and secure.
 
 # Getting Started
@@ -7,3 +7,8 @@ Make sure to have the depencencies installed using ```pip install -r requirement
 # TODO
 * script doesn't stop when closing the tkinter window
 * need to add a .gitignore
+
+# Future plans
+* ability to send pictures
+* ability to send files
+* user configuration
